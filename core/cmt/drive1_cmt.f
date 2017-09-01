@@ -29,7 +29,7 @@ c     Solve the Euler equations
       n = nxyz1*lelt*toteq
       nfldpart = ndim*npart
 
-      if(istep.eq.1) then 
+      if(istep.eq.1) then
          call cmt_ics
          time_cmt=0.0 !time !0.0 ! until we can get settime to behave
          call cmt_flow_ics
@@ -38,11 +38,12 @@ c all point particles are initialized and
 c preprocessing of interpolation step 
          call usr_particles_init
          call userchk ! need more ifdefs
-         call compute_grid_h(gridh,xm1,ym1,zm1)
          call compute_mesh_h(meshh,xm1,ym1,zm1)
+         call compute_grid_h(gridh,xm1,ym1,zm1)
          call compute_primitive_vars ! get good mu
          call entropy_viscosity      ! for high diffno
          call compute_transport_props! at t=0
+
       endif
 
       nstage = 3
@@ -125,8 +126,8 @@ C> Store it in res1
       real wkj(lx1+lxd)
       character*32  dumchars
 
-      call compute_grid_h(gridh,xm1,ym1,zm1)
       call compute_mesh_h(meshh,xm1,ym1,zm1)
+      call compute_grid_h(gridh,xm1,ym1,zm1)
 
       if (nxd.gt.nx1) then
          call set_dealias_face
