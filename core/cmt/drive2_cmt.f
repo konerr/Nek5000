@@ -68,14 +68,15 @@ c------------------------------------------------------------------------
       include 'CMTDATA'
       include 'NEKUSE'
       parameter (lxyz=lx1*ly1*lz1)
-      common /scrns/ scr(lxyz),avstate(toteq)
-      real scr,avstate
+      common /scrns/ energy(lxyz),scr(lxyz),avstate(toteq),
+     > otvar(lx1,ly1,lz1,lelt,1)
+      real energy,scr,avstate,otvar
       integer e,eg
 
       nxyz=lx1*ly1*lz1
       ntot=nxyz*nelt
 
-      epslon=1.0e-9
+      epslon=1.0e-13
 
 
       rgam=rgasref/(gmaref-1.0)
@@ -91,27 +92,98 @@ c------------------------------------------------------------------------
 !!        se0(e)=vlmin(scr(1,e),nxyz)
 !!     enddo
 
+!      do e=1,nelt
+!         call copy(otvar(1,1,1,e,1),u(1,1,1,1,e),nxyz)
+!         call copy(otvar(1,1,1,e,5),u(1,1,1,5,e),nxyz)
+!      end do
+!      rhomin = glmin(otvar(1,1,1,1,1),ntot)
+!      emin   = glmin(otvar(1,1,1,1,5),ntot)
+
       do e=1,nelt
 
 !        rhomin=vlmin(vtrans(1,1,1,e,irho),nxyz)
          rhomin=vlmin(u(1,1,1,1,e),nxyz)
 
-! positivity-preserving limiter of Zhang and Shu: density
-         rho=vlsc2(bm1(1,1,1,e),u(1,1,1,1,e),nxyz)/volel(e)
-         if (abs(rho-rhomin) .gt. epslon) then
-            theta=min((rho-epslon)/(rho-rhomin+epslon),1.0)
-            do i=1,nxyz
-               uold=u(i,1,1,1,e)
-               u(i,1,1,1,e)=rho+theta*(uold-rho)
-            enddo
-         else
-            theta=1.0
-         endif
-         call cfill(t(1,1,1,e,4),theta,nxyz)
-
-!! positivity-preserving limiter of Zhang and Shu: internal energy???
-!         emin=vlmin(u(1,1,1,5,e),nxyz)
+!! positivity-preserving limiter of Zhang and Shu: density
+!         rho=vlsc2(bm1(1,1,1,e),u(1,1,1,1,e),nxyz)/volel(e)
+!         if (abs(rho-rhomin) .gt. epslon) then
+!            theta=min((rho-epslon)/(rho-rhomin+epslon),1.0)
+!            do i=1,nxyz
+!               uold=u(i,1,1,1,e)
+!               u(i,1,1,1,e)=rho+theta*(uold-rho)
+!            enddo
+!         else
+!            theta=1.0
+!         endif
+!! positivity-preserving limiter of Cheng and Shu: density
+!!         rho=vlsc2(bm1(1,1,1,e),u(1,1,1,1,e),nxyz)/volel(e)
+!!!         if (abs(rho-rhomin) .gt. epslon) then
+!!            do i=1,nxyz
+!!               otvar(i,1,1,1,e)=(rho-epslon)/(rho-u(i,1,1,1,e)+epslon)
+!!            enddo
+!!            theta1=vlmin(otvar(i,1,1,1,e),nxyz)
+!!            theta1=min(1.0,theta1)
+!!            do i=1,nxyz
+!!               uold=u(i,1,1,1,e)
+!!               u(i,1,1,1,e)=rho+theta*(uold-rho)
+!!            enddo
+!!!         else
+!!!            theta=1.0
+!!!         endif
+!! s3 in visit
+!         call cfill(t(1,1,1,e,4),theta,nxyz)
+!
+!! positivity-preserving limiter of Cheng and Shu: internal energy
+!         avstate(1)=rho
+!         do m=2,toteq
+!            avstate(m)=vlsc2(bm1(1,1,1,e),u(1,1,1,m,e),nxyz)/volel(e)
+!         enddo
+!         eavg=avstate(5)-
+!     >              0.5*(avstate(2)**2+avstate(3)**2+avstate(4)**2)/
+!     >                   rho
+!         eavg=eavg/rho
+!
+!         call invcol3(vx(1,1,1,e),u(1,1,1,irpu,e),u(1,1,1,irg,e),nxyz)
+!         call invcol3(vy(1,1,1,e),u(1,1,1,irpv,e),u(1,1,1,irg,e),nxyz)
+!!        if (if3d)
+!         call invcol3(vz(1,1,1,e),u(1,1,1,irpw,e),u(1,1,1,irg,e),nxyz)
 !! first kinetic energy
+!         if (if3d) then
+!            call vdot3(scr,
+!     >             u(1,1,1,irpu,e),u(1,1,1,irpv,e),u(1,1,1,irpw,e),
+!     >             u(1,1,1,irpu,e),u(1,1,1,irpv,e),u(1,1,1,irpw,e),nxyz)
+!         else
+!            call vdot2(scr,u(1,1,1,irpu,e),u(1,1,1,irpv,e),
+!     >                     u(1,1,1,irpu,e),u(1,1,1,irpv,e),nxyz)
+!         endif
+!         call invcol2(scr,u(1,1,1,irg,e),nxyz)
+!         call cmult(scr,0.5,nxyz)
+!! then to internal energy
+!         call sub3(energy,u(1,1,1,iret,e),scr,nxyz)
+!! now mass-specific
+!         call invcol2(energy,u(1,1,1,irg,e),nxyz)
+!! Compute \theta_x
+!         do i=1,nxyz
+!            if(energy(i).lt.0.0) then
+!               otvar(i,1,1,1,e)=eavg/(eavg-energy(i))
+!            else
+!               otvar(i,1,1,1,e)=1.0
+!            end if
+!         enddo
+!! Get \theta_i^2
+!         theta2=abs(vlmin(otvar(1,1,1,1,e),nxyz))
+!         do m=1,toteq
+!            do i=1,nxyz
+!               uold=u(i,1,1,m,e)
+!               u(i,1,1,m,e)=avstate(m)+theta2*(uold-avstate(m))
+!            enddo
+!         enddo
+!
+!         call cfill(t(1,1,1,e,5),theta2,nxyz)
+
+! positivity-preserving limiter of Zhang and Shu: internal energy???
+!         emin=vlmin(u(1,1,1,5,e),nxyz)
+! first kinetic energy
 !         if (if3d) then
 !            call vdot3(scr,
 !     >             u(1,1,1,irpu,e),u(1,1,1,irpv,e),u(1,1,1,irpw,e),
@@ -125,16 +197,16 @@ c------------------------------------------------------------------------
 !         energy_eps=vlmax(scr,nxyz)
 !      
 !         rhoe=vlsc2(bm1(1,1,1,e),u(1,1,1,iret,e),nxyz)/volel(e)
-!!        if (abs(rhoe-emin) .gt. energy_eps) then
+!         if (abs(rhoe-emin) .gt. energy_eps) then
 !            theta=min((rhoe-energy_eps)/(rhoe-emin+epslon),1.0)
 !            do i=1,nxyz
 !               uold=u(i,1,1,iret,e)
 !               u(i,1,1,iret,e)=rhoe+theta*(uold-rhoe)
 !            enddo
-!!        else
-!!           theta=1.0
-!!        endif
-!         call cfill(t(1,1,1,e,5),theta,nxyz)
+!         else
+!           theta=1.0
+!         endif
+!         call cfill(t(1,1,1,e,4),theta,nxyz)
 
          do m=1,toteq
             avstate(m)=vlsc2(bm1(1,1,1,e),u(1,1,1,m,e),nxyz)/volel(e)
@@ -158,7 +230,7 @@ c------------------------------------------------------------------------
          epsebdg(e)=min(epsebdg(e),1.0)
          epsebdg(e)=max(epsebdg(e),0.0)
 ! diagnostic
-         call cfill(t(1,1,1,e,5),epsebdg(e),nxyz)
+         call cfill(t(1,1,1,e,6),epsebdg(e),nxyz)
 
          do m=1,toteq
             do i=1,nxyz
