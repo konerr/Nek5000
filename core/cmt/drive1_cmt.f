@@ -54,7 +54,7 @@ c     Solve the Euler equations
 !! JH090518 Shock detector is not ready for prime time. Lean on EVM for
 !!          sane default 
 !!        call perssonperaire(t(1,1,1,1,5),vtrans(1,1,1,1,irho),scrent)
-         call limiter
+         call limiter !Uncomment to run with limiter
 !!        call wavevisc(t(1,1,1,1,3))
 !! JH082718 mask viscosity in t(:,3)
 !!        call col2(t(1,1,1,1,3),t(1,1,1,1,5),nxyz*nelt)
@@ -200,7 +200,7 @@ C> Store it in res1
 !!          sane default 
 !!     if (stage.eq.1)
 !!    >call shock_detector(t(1,1,1,1,5),vtrans(1,1,1,1,irho),scrent)
-      call limiter
+      call limiter !Uncomment to run with limiter
       call compute_primitive_vars(1)
 
 !!     if (1==2) then
@@ -233,7 +233,9 @@ C> Store it in res1
             call out_fld_nek ! solution checkpoint for restart
 ! T2 S1 rho
 ! T3 S2 wave visc
-! T4 S3 epsebdg
+! T4 S3 theta_rhoPP
+! T5 S4 theta_ePP
+! T6 S5 epsebdg
             call outpost2(vx,vy,vz,pr,t,ldimt,'CMT')
             call mass_balance(if3d)
 #ifdef LPM
