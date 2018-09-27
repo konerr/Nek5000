@@ -16,12 +16,12 @@
       data icalld /0/
       save icalld
 
-      n=nx1*ny1*nz1
+      n=lx1*ly1*lz1
       ntot=n*nelt
       ntol=1.0e-10
 
       if (icalld .eq. 0) then
-         write(6,*) 'zeroing out entropy stack',istep
+         if (nio .eq. 0) write(6,*) 'zeroing out entropy stack',istep
          icalld=1
          call rzero(s,ntot)
          call rzero(s(1,1,2),ntot) ! s_{n-1}
@@ -58,7 +58,7 @@
 
       pi=4.0*atan(1.0)
 
-      n=nx1*ny1*nz1
+      n=lx1*ly1*lz1
       ntot=n*nelt
 
 ! entropy at this and lorder prior steps
@@ -69,10 +69,9 @@
       call cadd2(scrent,tlag,savg,ntot)
       maxdiff =     glamax(scrent,ntot)
       if (maxdiff.le.0.0) then
-         write(deathmessage,*) 'zero maxdiff usually means NAN$'
-         call exittr(deathmessage,maxdiff,istep)
-!     else
-!        if (nio .eq. 0) write (6,*) 'max(s-<s>)=',maxdiff, meshh(1)
+         write(6,*) 'zero maxdiff usually means NAN$'
+!        write(deathmessage,*) 'zero maxdiff usually means NAN$'
+!        call exittr(deathmessage,maxdiff,istep)
       endif
       call entropy_residual(tlag) ! fill res2
       call copy(res2(1,1,1,1,2),res2,ntot) ! raw residual in res2
@@ -86,6 +85,63 @@
 !     call evmsmooth(res2,t(1,1,1,1,3),.true.) ! And again.
       call dsavg(res2) ! you DEFINITELY don't want a min here
 
+
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine piecewiseAV(shock_detector)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CMTDATA'
+      integer e
+      character*132 deathmessage
+      common /scrvh/ avmask(lelt)
+      real avmask
+      external shock_detector
+
+      pi=4.0*atan(1.0)
+
+      nxyz=lx1*ly1*lz1
+      ntot=nxyz*nelt
+
+! toggle shock detector with AV application Lv, See & Ihme (2016) JCP 322
+
+      if (time4av) then
+         call shock_detector(avmask)
+
+! old nu_max
+         call wavevisc(t(1,1,1,1,3))
+! diagnostic
+!        if (stage.gt.0)then
+!        do e=1,nelt
+!!           do i=1,nxyz
+!              write(stage*100+nid,*)xm1(i,1,1,e),ym1(i,1,1,e),t(i,1,1,e,3)
+!           enddo
+!        enddo
+!        endif
+         do e=1,nelt
+            call cmult(t(1,1,1,e,3),avmask(e),nxyz)
+            if (avmask(e).ne.1.0) write(6,*) 'duh sir'
+         enddo
+
+      else
+         call rzero(t(1,1,1,1,3),ntot)
+!        call shock_detector(avmask)
+      endif
+
+! diagnostic
+!      if (stage.gt.0)then
+!      do e=1,nelt
+!         do i=1,nxyz
+!            write(stage*1000+nid,'(5e15.7)') xm1(i,1,1,e),ym1(i,1,1,e),
+!!     >        t(i,1,1,e,3),avmask(e),epsebdg(e)
+!         enddo
+!      enddo
+!      endif
+
+!     call max_to_trilin(t(1,1,1,1,3))
 
       return
       end
@@ -105,11 +161,11 @@ c-----------------------------------------------------------------------
       data dsdtcoef /1.0,1.0,0.5/
       real s(lx1*ly1*lz1*lelt,lorder-1,ldimt) ! because it's really tlag
 
-      n=nx1*ny1*nz1
+      n=lx1*ly1*lz1
       ntot=n*nelt
 
       if (istep .eq. 1) return
-      rdt=1.0/(dsdtcoef(stage)*DT_cmt)
+      rdt=1.0/(dsdtcoef(stage)*dt)
       if (stage .eq. 1) then ! THE MOST SABOTAGEABLE PART OF THE CODE
          call sub3(res2,s(1,1,1),s(1,1,2),ntot) ! EVALUATE s_n-s_{n-1}
       else
@@ -142,8 +198,8 @@ c-----------------------------------------------------------------------
       include 'CMTDATA'
       integer e
 
-      call rzero(totalh,3*nxd*nyd*nzd)
-      n=nx1*ny1*nz1
+      call rzero(totalh,3*lxd*lyd*lzd)
+      n=lx1*ly1*lz1
 
       call col3(totalh(1,1),vx(1,1,1,e),tlag(1,1,1,e,1,1),n)
       call col3(totalh(1,2),vy(1,1,1,e),tlag(1,1,1,e,1,1),n)
@@ -169,8 +225,8 @@ c-----------------------------------------------------------------------
       integer e
 
       nrstd=ldd
-      nxyz=nx1*ny1*nz1
-      mdm1=nx1-1
+      nxyz=lx1*ly1*lz1
+      mdm1=lx1-1
 
       call rzero(ur,nrstd)
       call rzero(us,nrstd)
@@ -228,9 +284,9 @@ c-----------------------------------------------------------------------
       real residual(lxyz,nelt)
       integer e,f
 
-      nxyz =nx1*ny1*nz1
-      nxz  =nx1*nz1
-      nface=2*ndim
+      nxyz =lx1*ly1*lz1
+      nxz  =lx1*lz1
+      nface=2*ldim
       nxzf =nxz*nface
       nfq  =nxzf*nelt
 
@@ -266,7 +322,7 @@ c-----------------------------------------------------------------------
       subroutine evmsmooth(resvisc,wavevisc,endpoints)
       include 'SIZE'
       include 'INPUT'
-      real resvisc(nx1,ny1,nz1,nelt),wavevisc(nx1,ny1,nz1,nelt)
+      real resvisc(lx1,ly1,lz1,nelt),wavevisc(lx1,ly1,lz1,nelt)
       real rtmp
       common /ctmp1/ rtmp(lx1,ly1,lz1)
 ! are faces included in smoothing? if not (say they're fixed by dsavg) then
@@ -278,24 +334,24 @@ c-----------------------------------------------------------------------
 ! weight the neighbors according to GLL-spacing instead of uniform-grid
 ! at a later date.
 
-      nxyz=nx1*ny1*nz1
+      nxyz=lx1*ly1*lz1
       kstart=1
-      kend=nz1
-      rndim=1.0/ndim
+      kend=lz1
+      rldim=1.0/ldim
 
       if (endpoints) then
          istart=1
          jstart=1
-         iend=nx1
-         jend=ny1
+         iend=lx1
+         jend=ly1
       else
          istart=2
          jstart=2
-         iend=nx1-1
-         jend=ny1-1
+         iend=lx1-1
+         jend=ly1-1
          if (if3d) then
             kstart=2
-            kend=nz1-1
+            kend=lz1-1
          endif
       endif
 
@@ -314,8 +370,8 @@ c-----------------------------------------------------------------------
 !              if (km1 .lt. 1) izm=iz ! bias towards {{face point}}
                if (km1 .lt. 1) izm=kp1 ! Guermond symmetry
                izp=kp1
-!              if (kp1 .gt. nz1) izp=iz ! bias towards {{face point}}
-               if (kp1 .gt. nz1) izp=km1 ! Guermond symmetry
+!              if (kp1 .gt. lz1) izp=iz ! bias towards {{face point}}
+               if (kp1 .gt. lz1) izp=km1 ! Guermond symmetry
             else
                izm=iz
                izp=iz
@@ -327,8 +383,8 @@ c-----------------------------------------------------------------------
 !              if (jm1 .lt. 1) iym=iy ! bias towards {{face point}}
                if (jm1 .lt. 1) iym=jp1 ! Guermond symmetry
                iyp=jp1
-!              if (jp1 .gt. ny1) iyp=iy ! bias toward {{face point}}
-               if (jp1 .gt. ny1) iyp=jm1 ! Guermond symmetry
+!              if (jp1 .gt. ly1) iyp=iy ! bias toward {{face point}}
+               if (jp1 .gt. ly1) iyp=jm1 ! Guermond symmetry
                do ix=istart,iend
                   im1=ix-1
                   ip1=ix+1
@@ -336,8 +392,8 @@ c-----------------------------------------------------------------------
 !                 if (im1 .lt. 1) ixm=ix ! bias towards {{face point}}
                   if (im1 .lt. 1) ixm=ip1 ! Guermond symmetry
                   ixp=ip1
-!                 if (ip1 .gt. nx1) ixp=ix ! bias towards {{face point}}
-                  if (ip1 .gt. nx1) ixp=im1 ! Guermond symmetry
+!                 if (ip1 .gt. lx1) ixp=ix ! bias towards {{face point}}
+                  if (ip1 .gt. lx1) ixp=im1 ! Guermond symmetry
                   x0 = resvisc(ix ,iy ,iz ,e)
                   x1 = resvisc(ixm,iy ,iz ,e)
                   x2 = resvisc(ixp,iy ,iz ,e)
@@ -350,8 +406,8 @@ c-----------------------------------------------------------------------
                      x5=0.0
                      x6=0.0
                   endif
-                  rtmp(ix,iy,iz)=0.25*(2.0*ndim*x0+x1+x2+x3+x4+x5+x6)
-     >                               *rndim
+                  rtmp(ix,iy,iz)=0.25*(2.0*ldim*x0+x1+x2+x3+x4+x5+x6)
+     >                               *rldim
                enddo
             enddo
          enddo
@@ -378,7 +434,7 @@ c-----------------------------------------------------------------------
       real numax(lxyz,nelt)
       integer e
 
-      nxyz=nx1*ny1*nz1
+      nxyz=lx1*ly1*lz1
 
       do e=1,nelt
          do i=1,nxyz
@@ -386,13 +442,14 @@ c-----------------------------------------------------------------------
      >      sqrt(vx(i,1,1,e)**2+vy(i,1,1,e)**2+vz(i,1,1,e)**2)
          enddo
          maxeig=vlamax(wavespeed,nxyz)
-         rhomax(e)=vlamax(vtrans(1,1,1,e,irho),nxyz)
+! Zingan (2015) only. not long for this world
+!        rhomax(e)=vlamax(vtrans(1,1,1,e,irho),nxyz)
          do i=1,nxyz
             numax(i,e)=c_max*maxeig*meshh(e)
          enddo
       enddo
 
-      call max_to_trilin(numax)
+      call max_to_trilin(t(1,1,1,1,3))
 
       return
       end
@@ -407,23 +464,21 @@ c-----------------------------------------------------------------------
       real field(lx1,ly1,lz1,nelt)
       integer e
 
-      character*32 fname ! diagnostic
-
-      nxyz=nx1*ny1*nz1
+      nxyz=lx1*ly1*lz1
 
 ! get maxima on faces
-      call dsop(field,'MAX',nx1,ny1,nz1)
+      call dsop(field,'MAX',lx1,ly1,lz1)
 
 ! trilinear interpolation. you should adapt xyzlin to your needs instead
       do e=1,nelt
          p000=field(1,  1,  1,  e)
-         p100=field(nx1,1,  1,  e)
-         p010=field(1,  ny1,1,  e)
-         p110=field(nx1,ny1,1,  e)
-         p001=field(1,  1,  nz1,e)
-         p101=field(nx1,1,  nz1,e)
-         p011=field(1,  ny1,nz1,e)
-         p111=field(nx1,ny1,nz1,e)
+         p100=field(lx1,1,  1,  e)
+         p010=field(1,  ly1,1,  e)
+         p110=field(lx1,ly1,1,  e)
+         p001=field(1,  1,  lz1,e)
+         p101=field(lx1,1,  lz1,e)
+         p011=field(1,  ly1,lz1,e)
+         p111=field(lx1,ly1,lz1,e)
          c1=p100-p000
          c2=p010-p000
          c3=p001-p000
@@ -431,10 +486,10 @@ c-----------------------------------------------------------------------
          c5=p011-p001-p010+p000
          c6=p101-p001-p100+p000
          c7=p111-p011-p101-p110+p100+p001+p010-p000
-         rdx=1.0/(xm1(nx1,1,1,e)-xm1(1,1,1,e)) ! cubes only!!!
-         rdy=1.0/(ym1(1,ny1,1,e)-ym1(1,1,1,e))
+         rdx=1.0/(xm1(lx1,1,1,e)-xm1(1,1,1,e)) ! cubes only!!!
+         rdy=1.0/(ym1(1,ly1,1,e)-ym1(1,1,1,e))
          rdz=0.0
-         if(if3d) rdz=1.0/(zm1(1,1,nz1,e)-zm1(1,1,1,e))
+         if(if3d) rdz=1.0/(zm1(1,1,lz1,e)-zm1(1,1,1,e))
          do i=1,nxyz
             deltax=rdx*(xm1(i,1,1,e)-xm1(1,1,1,e)) ! cubes only!!!
             deltay=rdy*(ym1(i,1,1,e)-ym1(1,1,1,e))
@@ -444,6 +499,67 @@ c-----------------------------------------------------------------------
      >                          c4*deltax*deltay+c5*deltay*deltaz+
      >                       c6*deltaz*deltax+c7*deltay*deltaz*deltax
          enddo
+      enddo
+
+      return
+      end
+
+!-----------------------------------------------------------------------
+
+      subroutine perssonperaire(shkdet,var,shtmp)
+! Peraire & Persson (2006) Eq. 7
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CMTDATA'
+      parameter (lxyz=lx1*ly1*lz1)
+      common /scrns/ fvar (lxyz,lelt)
+!    $ ,             ytm1 (lx1,ly1,lz1,lelv)
+      real shkdet(lxyz,nelt),var(lxyz,*),shtmp(lxyz,*)
+      integer e
+! this whole common block is atrocious
+      common /CMTFILTERS/  intv(lx1,lx1),intt(lx1,lx1)
+     $                  ,  intvd(lxd,lxd),inttd(lxd,lxd)
+     $                  ,  wk1(lx1,lx1,lz1),wk2(lx1,lx1,lz1)
+     $                  ,  wkd1(lxd,lxd,lzd),wkd2(lxd,lxd,lzd)
+      real                 intv, intt, intvd, inttd
+      real kappa
+      integer icalld
+      save    icalld
+      data    icalld/0/
+
+      if (icalld.eq.0) then
+         ncut=-110
+         icalld=1
+         call userfilt(intv,zgm1,lx1,nio)
+      endif
+
+      n=lx1*ly1*lz1
+      ntot=n*nelt
+
+! JH082418 Hardcoded threshold
+      cpp=0.001
+
+      call copy(fvar,var,ntot)
+      call filterq(fvar,intv,lx1,lz1,wk1,wk2,intt,if3d,dmax)
+
+      do e=1,nelt
+         call sub3(shkdet(1,e),var(1,e),fvar(1,e),n) ! store u-u^ in shkdet
+         shock_or_not=vlsc3(shkdet(1,e),shkdet(1,e),bm1(1,1,1,e),n)
+         denom=vlsc3(var(1,e),var(1,e),bm1(1,1,1,e),n)
+         if (denom .gt. 0.0) then ! mask this somehow. ifs are bad
+            shock_or_not=(shock_or_not/denom)*(lx1-1)**4
+!           shock_or_not=log10(shock_or_not)
+            if (shock_or_not .gt. cpp) then
+!              call cfill(shkdet(1,e),shock_or_not,n)
+               call rone(shkdet(1,e),n)
+            else
+               call rzero(shkdet(1,e),n)
+            endif
+         else
+            write(6,*) 'nid,iel=',nid,e
+            write(6,*) 'variables that change sign are bad for shox'
+            call exitt
+         endif
       enddo
 
       return

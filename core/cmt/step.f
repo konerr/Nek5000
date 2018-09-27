@@ -29,30 +29,43 @@ C> @file step.f time stepping and mesh spacing routines
       real strof
       data strof /1.0e-8/
 
-      NTOT   = NX1*NY1*NZ1*NELV
+      dt=abs(param(12))
+
+      NTOT   = lx1*ly1*lz1*NELV
       do i=1,ntot
          utmp(i,1,1,1) = abs(vx(i,1,1,1))+csound(i,1,1,1)
          vtmp(i,1,1,1) = abs(vy(i,1,1,1))+csound(i,1,1,1)
          wtmp(i,1,1,1) = abs(vz(i,1,1,1))+csound(i,1,1,1)
       enddo
-      if (ctarg .gt.0.0) then
+
+! JH091118 DefaultParameters means we don't have direct control over
+!          this variable anymore. If it's lower than its default value,
+!          we trust it to set the time step
+!     if (ctarg .gt.0.0) then
+      if (ctarg .lt.0.5) then
          call compute_cfl (umax,utmp,vtmp,wtmp,1.0)
          dt_cfl=ctarg/umax
          call glsqinvcolmin(dt1,vdiff(1,1,1,1,imu ),gridh,ntot,ctarg)
          call glsqinvcolmin(dt2,vdiff(1,1,1,1,iknd),gridh,ntot,ctarg)
          call glsqinvcolmin(dt3,vdiff(1,1,1,1,inus),gridh,ntot,ctarg)
-         dt_cmt=min(dt_cfl,dt1,dt2,dt3)
-         if (dt_cmt .gt. 10.0) then
+         dt=min(dt_cfl,dt1,dt2,dt3)
+         if (dt .gt. 10.0) then
             if (nio.eq.0) write(6,*) 'dt huge. crashing ',istep,stage,
-     >         dt_cmt
+     >         dt
             call exitt
          endif
       else
-         dt_cmt=dt
+         dt = abs(param(12))
       endif
+      dt_ptcle = dt  
+#ifdef LPM
+      call lpm_set_dt(dt_ptcle) ! particle time step
+      dt=min(dt,dt_ptcle)
+#endif
+
       if (timeio .gt. 0.0) then ! adjust dt for timeio. 
          zetime1=time_cmt
-         zetime2=time_cmt+dt_cmt
+         zetime2=time_cmt+dt
          it1=zetime1/timeio
          it2=zetime2/timeio
          ita=it1
@@ -63,21 +76,24 @@ C> @file step.f time stepping and mesh spacing routines
          if (abs(zetime2-itb*timeio).le.strof) it2=itb
          if (it2.gt.it1) then
             ifoutfld=.true.
-            dt_cmt=(it2*timeio)-time_cmt
+            dt=(it2*timeio)-time_cmt
          endif
       endif
-      call compute_cfl (courno,utmp,vtmp,wtmp,dt_cmt) ! sanity?
-      dt=dt_cmt
+
+      param(12)=-dt
+
+      call compute_cfl (courno,utmp,vtmp,wtmp,dt) ! sanity?
 
 ! diffusion number based on viscosity.
 
 !     call mindr(mdr,diffno2)
-      call glinvcol2max(diffno1,vdiff(1,1,1,1,imu), gridh,ntot,dt_cmt)
-      call glinvcol2max(diffno2,vdiff(1,1,1,1,iknd),gridh,ntot,dt_cmt)
-      call glinvcol2max(diffno3,vdiff(1,1,1,1,inus),gridh,ntot,dt_cmt)
+      call glinvcol2max(diffno1,vdiff(1,1,1,1,imu), gridh,ntot,dt)
+      call glinvcol2max(diffno2,vdiff(1,1,1,1,iknd),gridh,ntot,dt)
+      call glinvcol2max(diffno3,vdiff(1,1,1,1,inus),gridh,ntot,dt)
 !     diffno=max(diffno1,diffno2,diffno3)
-      time_cmt=time_cmt+dt_cmt
-      if (nio.eq.0) WRITE(6,100)ISTEP,TIME_CMT,DT_CMT,COURNO,
+      time_cmt= time_cmt+dt
+      time    = time_cmt
+      if (nio.eq.0) WRITE(6,100)ISTEP,TIME_CMT,DT,COURNO,
      >   diffno1,diffno2,diffno3
  100  FORMAT('CMT ',I7,', t=',1pE14.7,', DT=',1pE14.7
      $,', C=',1pE12.5,', Dmu,knd,art=',3(1pE11.4))
@@ -106,8 +122,8 @@ c
       else
         diffno=0.0
         do e=1,nelt
-          do iy=2,ny1-1
-          do ix=2,nx1-1
+          do iy=2,ly1-1
+          do ix=2,lx1-1
             dtmp=1.0e5
             x0 = xm1(ix  ,iy  ,1,e)
             x1 = xm1(ix  ,iy-1,1,e)
@@ -161,10 +177,10 @@ c
       include 'INPUT'
       include 'GEOM'
       real a(3), b(3), c(3), d(3)
-      real h(nx1,ny1,nz1,nelt) ! intent(out)
-      real x(nx1,ny1,nz1,nelt) ! intent(in)
-      real y(nx1,ny1,nz1,nelt) ! intent(in)
-      real z(nx1,ny1,nz1,nelt) ! intent(in)
+      real h(lx1,ly1,lz1,nelt) ! intent(out)
+      real x(lx1,ly1,lz1,nelt) ! intent(in)
+      real y(lx1,ly1,lz1,nelt) ! intent(in)
+      real z(lx1,ly1,lz1,nelt) ! intent(in)
       integer e
       integer icalld
       data icalld /0/
@@ -177,32 +193,32 @@ c
       endif
 
       do e=1,nelt
-         do iz=1,nz1
+         do iz=1,lz1
             if (if3d) then
                km1=iz-1
                kp1=iz+1
                izm=km1
                if (km1 .lt. 1) izm=iz
                izp=kp1
-               if (kp1 .gt. nz1) izp=iz
+               if (kp1 .gt. lz1) izp=iz
             else
                izm=iz
                izp=iz
             endif
-            do iy=1,ny1
+            do iy=1,ly1
                jm1=iy-1
                jp1=iy+1
                iym=jm1
                if (jm1 .lt. 1) iym=iy
                iyp=jp1
-               if (jp1 .gt. ny1) iyp=iy
-               do ix=1,nx1
+               if (jp1 .gt. ly1) iyp=iy
+               do ix=1,lx1
                   im1=ix-1
                   ip1=ix+1
                   ixm=im1
                   if (im1 .lt. 1) ixm=ix
                   ixp=ip1
-                  if (ip1 .gt. nx1) ixp=ix
+                  if (ip1 .gt. lx1) ixp=ix
                   x1 = x(ixm,iy ,iz ,e)
                   x2 = x(ixp,iy ,iz ,e)
                   x3 = x(ix ,iym,iz ,e)
@@ -288,9 +304,9 @@ c
       include 'SIZE'
       include 'INPUT'
       real h(nelt)             ! intent(out)
-      real x(nx1,ny1,nz1,nelt) ! intent(in)
-      real y(nx1,ny1,nz1,nelt) ! intent(in)
-      real z(nx1,ny1,nz1,nelt) ! intent(in)
+      real x(lx1,ly1,lz1,nelt) ! intent(in)
+      real y(lx1,ly1,lz1,nelt) ! intent(in)
+      real z(lx1,ly1,lz1,nelt) ! intent(in)
       real xcrn(8),ycrn(8),zcrn(8)
       integer e
       integer icalld
@@ -303,17 +319,17 @@ c
          icalld=1
       endif
 
-      ncrn=2**ndim
-      rp=1.0/((nx1-1))
+      ncrn=2**ldim
+      rp=1.0/((lx1-1))
 
       do e=1,nelt
          call rzero(zcrn,8)
          k1=1
-         k2=nz1
+         k2=lz1
          j1=1
-         j2=ny1
+         j2=ly1
          i1=1
-         i2=nx1
+         i2=lx1
          xcrn(1) = x(i1,j1,k1,e)
          xcrn(2) = x(i2,j1,k1,e)
          xcrn(3) = x(i1,j2,k1,e)

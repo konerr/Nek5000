@@ -4,8 +4,8 @@ C> @file Dirichlet states for inflow boundary conditions
       INCLUDE 'INPUT'
       INCLUDE 'CMTBCDATA'
       integer nvar,f,e
-      real facew(nx1,nz1,2*ldim,nelt,nvar)
-      real wbc(nx1,nz1,2*ldim,nelt,nvar)
+      real facew(lx1,lz1,2*ldim,nelt,nvar)
+      real wbc(lx1,lz1,2*ldim,nelt,nvar)
 
 ! JH021717 compare
 !     call inflow_rflu(nvar,f,e,facew,wbc)
@@ -17,6 +17,10 @@ C> @file Dirichlet states for inflow boundary conditions
 !--------------------------------------------------------------------
 
       subroutine inflow_rflu(nvar,f,e,facew,wbc)
+!--------------------------------------------------------------------
+! JH080118 CP IS ENERGY NOW
+! DOESN'T WORK!!!
+!--------------------------------------------------------------------
       include 'SIZE'
       include 'INPUT'
       include 'NEKUSE'
@@ -28,17 +32,17 @@ C> @file Dirichlet states for inflow boundary conditions
 
       integer f,e,fdim ! intent(in)
       integer i,bcOptType
-      real facew(nx1*nz1,2*ldim,nelt,nvar) ! intent(in)
-      real wbc  (nx1*nz1,2*ldim,nelt,nvar)   ! intent(out)
+      real facew(lx1*lz1,2*ldim,nelt,nvar) ! intent(in)
+      real wbc  (lx1*lz1,2*ldim,nelt,nvar)   ! intent(out)
       real snx,sny,snz,rhou,rhov,rhow,pl,rhob,rhoub,rhovb,rhowb
      >     ,rhoeb, mach
 
-      nxz=nx1*nz1
-      nxzd=nxd*nzd
-      fdim=ndim-1
+      nxz=lx1*lz1
+      nxzd=lxd*lzd
+      fdim=ldim-1
       ieg=lglel(e)
 
-      call facind(i0,i1,j0,j1,k0,k1,nx1,ny1,nz1,f)    
+      call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)    
       l=0
       do iz=k0,k1
       do iy=j0,j1
@@ -112,17 +116,17 @@ c                                     !     ux,uy,uz
 
       integer f,e,fdim ! intent(in)
       integer i
-      real facew(nx1*nz1,2*ldim,nelt,nvar) ! intent(in)
-      real wbc  (nx1*nz1,2*ldim,nelt,nvar)   ! intent(out)
+      real facew(lx1*lz1,2*ldim,nelt,nvar) ! intent(in)
+      real wbc  (lx1*lz1,2*ldim,nelt,nvar)   ! intent(out)
       real snx,sny,snz,rhou,rhov,rhow,pl,rhob,rhoub,rhovb,rhowb
      >     ,rhoeb, mach
 
-      nxz=nx1*nz1
-      nxzd=nxd*nzd
-      fdim=ndim-1
+      nxz=lx1*lz1
+      nxzd=lxd*lzd
+      fdim=ldim-1
       ieg=lglel(e)
 
-      call facind(i0,i1,j0,j1,k0,k1,nx1,ny1,nz1,f)    
+      call facind(i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)    
       l=0
       do iz=k0,k1
       do iy=j0,j1
@@ -164,7 +168,8 @@ c                                     !     ux,uy,uz
             wbc(l,f,e,ipr)  = pres
             wbc(l,f,e,isnd) = sqrt(cp/cv*pres/rho) ! too perfect?
             wbc(l,f,e,ithm) = temp      ! definitely too perfect!
-            wbc(l,f,e,icpf) = rho*cp ! NEED EOS WITH TEMP Dirichlet, userbc
+!           wbc(l,f,e,icpf) = rho*cp ! NEED EOS WITH TEMP Dirichlet, userbc
+            wbc(l,f,e,icpf) = e_internal
             wbc(l,f,e,icvf) = rho*cv ! NEED EOS WITH TEMP Dirichlet, userbc
 
          else ! supersonic inflow
@@ -172,13 +177,15 @@ c                                     !     ux,uy,uz
             wbc(l,f,e,ipr)  = pres
             wbc(l,f,e,isnd) = asnd
             wbc(l,f,e,ithm) = temp
-            wbc(l,f,e,icpf) = rho*cp
+!           wbc(l,f,e,icpf) = rho*cp
+            wbc(l,f,e,icpf) = e_internal
             wbc(l,f,e,icvf) = rho*cv
 
          endif
 
 ! find a smarter way of doing this. fold it into usr file if you must
-         wbc(l,f,e,iu5)  = phi*rho*cv*temp+0.5/rhob*(rhoub**2+rhovb**2+
+
+         wbc(l,f,e,iu5)  = phi*rho*e_internal+0.5/rhob*(rhoub**2+rhovb**2+
      >                                               rhowb**2)
 
       enddo
