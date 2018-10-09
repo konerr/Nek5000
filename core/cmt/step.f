@@ -51,6 +51,9 @@ C> @file step.f time stepping and mesh spacing routines
          dt_cmt=dt
       endif
 
+      ! since things have change in Nek5000 master branch, force const
+      dt_cmt = dt
+
       ! particle cfl
 #ifdef LPM
       rdt_part = dt_cmt ! set large, so compute correct here
