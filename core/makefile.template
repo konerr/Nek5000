@@ -70,7 +70,7 @@ else
   CMTCORE := drive1_cmt.o drive2_cmt.o driver3_cmt.o \
    face.o ausm.o  MixtPerf.o intpdiff.o diffusive_cmt.o eqnsolver_cmt.o surface_fluxes.o \
    bc.o inflow_bc.o outflow_bc.o wall_bc.o step.o \
-   filters_cmt.o diagnostics.o artvisc.o 
+   filters_cmt.o diagnostics.o artvisc.o gfldr_cmt.o
 endif
 # VISIT ########################################################################
 ifneq ($(VISIT),0)
@@ -238,6 +238,7 @@ $(OBJDIR)/outflow_bc.o	:$(SCMT)/outflow_bc.f;		$(FC) -c $(FL2) $< -o $@
 $(OBJDIR)/wall_bc.o	:$(SCMT)/wall_bc.f;		$(FC) -c $(FL2) $< -o $@
 $(OBJDIR)/filters_cmt.o	:$(SCMT)/filters_cmt.f;		$(FC) -c $(FL2) $< -o $@
 $(OBJDIR)/diagnostics.o	:$(SCMT)/diagnostics.f;		$(FC) -c $(FL2) $< -o $@
+$(OBJDIR)/gfldr_cmt.o	:$(SCMT)/gfldr_cmt.f;		$(FC) -c $(FL2) $< -o $@
 
 # LPM CORE     ##################################################################
 $(OBJDIR)/lpm.o  	:$S/lpm.f $S/LPM;             	$(FC) -c $(FL2) $< -o $@
