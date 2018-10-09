@@ -36,6 +36,8 @@ c----------------------------------------------------------------------
       include 'CTIMER'
       include 'LPM'
 
+      common /UQ/ fac_pg,fac_qs 
+      real fac_pg,fac_qs 
 c     common /elementload/ gfirst, inoassignd, resetFindpts, pload(lelg)
 c     integer gfirst, inoassignd, resetFindpts, pload
 
@@ -56,6 +58,15 @@ c     call read_particle_input_par ! for lb code since no par file
          call spread_props_grid           
       endif
       call interp_props_part_location 
+
+      if (nid .eq. 0) then
+         open(unit=82,file="uq.inp",form="formatted")
+         read(82,*) fac_pg
+         read(82,*) fac_qs
+         close(82)
+      endif
+      call bcast(fac_pg,wdsize)
+      call bcast(fac_qs,wdsize)
 
       if (time_integ .lt. 0) call pre_sim_collisions ! e.g., settling p
    
@@ -830,10 +841,10 @@ c
       endif
 
 
-      ! filtering makes velocity field smoother
-      wght = 1.0
-      ncut = 1
-      call filter_s0(ptw(1,1,1,1,4),wght,ncut,'phip') 
+c     ! filtering makes velocity field smoother
+c     wght = 1.0
+c     ncut = 1
+c     call filter_s0(ptw(1,1,1,1,4),wght,ncut,'phip') 
 
       rvfmax = 0.7405
       rvfmin = 0.0
@@ -942,11 +953,23 @@ c
 
       real vel_diff,pmass,pmassf
 
+      integer             stage
+      common /tstepstage/ stage
+
+      common /UQ/ fac_pg,fac_qs 
+      real fac_pg,fac_qs 
+c      save fac_pg,fac_qs 
+
       common /PARTRK3/ kv_stage_p
       real kv_stage_p(llpart,7)
 
       if ((part_force(2) .ne. 0) .or. (part_force(3) .ne. 0))
      >   call calc_substantial_derivative
+
+      if ((nid .eq. 0) .and. (stage .eq. 3)) then
+         write(6,*) 'LPM UQ: qs,pg', fac_qs,fac_pg
+c         call exitt
+      end if
 
       do i=1,n
          rpart(jfcol  ,i) = 0.
@@ -976,13 +999,13 @@ c        momentum rhs ------------------------------------------------
 
          if (time_integ .gt. 0) then
             call lpm_f_qs
-               rpart(jfqs+0,i) = lpmforce(1)
-               rpart(jfqs+1,i) = lpmforce(2)
-               rpart(jfqs+2,i) = lpmforce(3)
+               rpart(jfqs+0,i) = lpmforce(1)*fac_qs
+               rpart(jfqs+1,i) = lpmforce(2)*fac_qs
+               rpart(jfqs+2,i) = lpmforce(3)*fac_qs
             call lpm_f_un
-               rpart(jfun+0,i) = lpmforce(1)
-               rpart(jfun+1,i) = lpmforce(2)
-               rpart(jfun+2,i) = lpmforce(3)
+               rpart(jfun+0,i) = lpmforce(1)*fac_pg
+               rpart(jfun+1,i) = lpmforce(2)*fac_pg
+               rpart(jfun+2,i) = lpmforce(3)*fac_pg
             call lpm_f_iu
                rpart(jfiu+0,i) = lpmforce(1)
                rpart(jfiu+1,i) = lpmforce(2)
@@ -1079,7 +1102,7 @@ c
      >                                   rpart(jtempf,i),icmtp)
       if (icmtp .eq. 0) then
          lpmach_p  = 0.0
-      elseif (icmtp .eq. 1) 
+      elseif (icmtp .eq. 1) then
          lpmmach_p = lpmvdiff_pf/lpmmach_p
       endif
       lpmre_p      = rpart(jrho,i)*rpart(jdp,i)*lpmvdiff_pf/mu_0 ! Re
