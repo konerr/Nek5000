@@ -467,10 +467,9 @@ c    $                  ,bm1(1,1,1,e),nxyz)
 c-----------------------------------------------------------------------
       subroutine cmtusrf(e)
       include 'SIZE'
-      include 'NEKUSE'
+      include 'TOTAL'
       include 'CMTDATA'
-      include 'TSTEP'
-      include 'PARALLEL'
+      include 'NEKUSE'
 
       integer e,eg
 
@@ -488,9 +487,9 @@ c-----------------------------------------------------------------------
                ! note fx,fy,fz multiply by density*phig to be
                ! consistent with nek5000 units (i.e. ffx,ffy,ffz
                ! are accelerations!
-               usrf(i,j,k,2) = FFX*u(i,j,k,1,e)
-               usrf(i,j,k,3) = FFY*u(i,j,k,1,e)
-               usrf(i,j,k,4) = FFZ*u(i,j,k,1,e)
+               usrf(i,j,k,2) = FFX*vtrans(i,j,k,e,1)*phig(i,j,k,e)
+               usrf(i,j,k,3) = FFY*vtrans(i,j,k,e,1)*phig(i,j,k,e)
+               usrf(i,j,k,4) = FFZ*vtrans(i,j,k,e,1)*phig(i,j,k,e)
                usrf(i,j,k,5) = 0.0
             enddo
          enddo
