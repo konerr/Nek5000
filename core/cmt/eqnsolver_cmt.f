@@ -457,8 +457,8 @@ C> @}
      $                  ,bm1(1,1,1,e),nxyz) 
         endif
       elseif(eq_num.eq.5)then
-c          call subcol3(res1(1,1,1,e,eq_num),usrf(1,1,1,eq_num)
-c    $                  ,bm1(1,1,1,e),nxyz) 
+           call subcol3(res1(1,1,1,e,eq_num),usrf(1,1,1,eq_num)
+     $                  ,bm1(1,1,1,e),nxyz) 
 
       endif
 
@@ -490,7 +490,7 @@ c-----------------------------------------------------------------------
                usrf(i,j,k,2) = FFX*vtrans(i,j,k,e,1)*phig(i,j,k,e)
                usrf(i,j,k,3) = FFY*vtrans(i,j,k,e,1)*phig(i,j,k,e)
                usrf(i,j,k,4) = FFZ*vtrans(i,j,k,e,1)*phig(i,j,k,e)
-               usrf(i,j,k,5) = 0.0
+               usrf(i,j,k,5) = qvol !0.0
             enddo
          enddo
       enddo
