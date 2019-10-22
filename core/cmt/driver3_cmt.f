@@ -279,7 +279,6 @@ c     ! save velocity on fine mesh for dealiasing
             vdiff(i,j,k,e,iknd)= udiff
             vdiff(i,j,k,e,ilam)= lambda
             t(i,j,k,e,1) = temp
-            csound(i,j,k,e) = asnd !Rahul
          enddo
          enddo
          enddo
