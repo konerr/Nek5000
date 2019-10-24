@@ -8,7 +8,7 @@ C> @file Dirichlet states for inflow boundary conditions
       real wbc(lx1,lz1,2*ldim,nelt,nvar)
 
 ! JH021717 compare
-!     call inflow_rflu(nvar,f,e,facew,wbc)
+!      call inflow_rflu(nvar,f,e,facew,wbc)
       call inflow_inviscid(nvar,f,e,facew,wbc)
 
       return
@@ -169,7 +169,7 @@ c                                     !     ux,uy,uz
             wbc(l,f,e,isnd) = sqrt(cp/cv*pres/rho) ! too perfect?
             wbc(l,f,e,ithm) = temp      ! definitely too perfect!
 !           wbc(l,f,e,icpf) = rho*cp ! NEED EOS WITH TEMP Dirichlet, userbc
-            wbc(l,f,e,icpf) = e_internal
+            wbc(l,f,e,icpf) = cv*temp !e_internal 
             wbc(l,f,e,icvf) = rho*cv ! NEED EOS WITH TEMP Dirichlet, userbc
 
          else ! supersonic inflow
