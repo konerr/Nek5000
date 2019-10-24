@@ -94,6 +94,7 @@ c
      >        ,unif_random_sphere
       external unif_random,unif_random_norm,unif_random_cyl,
      >         unif_random_sphere
+      real     piby2, theta
 
       icalld = icalld + 1
 
@@ -159,9 +160,11 @@ c        main loop to distribute particles
                endif
                ! z cylinder
                if ( abs(rnz).gt.abs(rnx).and.abs(rnz).gt.abs(rny)) then
-                  if (j.eq. 0) rdum = rx0 + rrad*cos(rthet)
+                  if (j.eq. 0) rdum = rx0 + rrad*cos(rthet) 
+c     >                                - 0.5*rpart(jdp,n)
                   if (j.eq. 1) rdum = ry0 + rrad*sin(rthet)
-                  if (j.eq. 2) rdum = rz0 + rxtr
+c     >                                - 0.5*rpart(jdp,n)
+                  if (j.eq. 2) rdum = rz0 + rxtr !- 0.5*rpart(jdp,n)
                endif
                   rpart(jx +j,n) = rdum
                   rpart(jx1+j,n) = rdum
@@ -208,12 +211,83 @@ c        main loop to distribute particles
                   
             ! distribute in box
             else
+               rydist = rxbo(2,2)-rxbo(1,2)
+               rzdist = rxbo(2,3)-rxbo(1,3)
                do j=0,2
                   rpart(jx +j,n) = unif_random(rxbo(1,j+1),rxbo(2,j+1))
                   rpart(jx1+j,n) = unif_random(rxbo(1,j+1),rxbo(2,j+1))
                   rpart(jx2+j,n) = unif_random(rxbo(1,j+1),rxbo(2,j+1))
                   rpart(jx3+j,n) = unif_random(rxbo(1,j+1),rxbo(2,j+1))
                enddo
+               if (n.gt.1) then
+                  do j=1,n-1
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n))**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n))**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n)-rydist)**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n))**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n)+rydist)**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n))**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n))**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n)-rzdist)**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n))**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n)+rzdist)**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n)+rydist)**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n)+rzdist)**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n)-rydist)**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n)-rzdist)**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n)+rydist)**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n)-rzdist)**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+
+                     ! first check placed particles already
+                     rdist = (rpart(jx  ,j)-rpart(jx  ,n))**2
+     >                      +(rpart(jx+1,j)-rpart(jx+1,n)-rydist)**2
+     >                      +(rpart(jx+2,j)-rpart(jx+2,n)+rzdist)**2
+                     rdist = sqrt(rdist)
+                     if (rdist .lt. rpart(jdp,n)) goto 754
+                  enddo
+               endif
+               if (mod(n,2) .eq. 0 .or. n .eq. 1)
+     >         write(6,'(A,I0,A,I0)') "Placed particle ", n," of ", np
+                     
             endif
 
 c           set some rpart values for later use
@@ -244,6 +318,31 @@ c           set global particle id (3 part tag)
          nread_part = 1
          do j=1,nread_part
             call read_parallel_restart_part
+         enddo
+c         if (nid.eq.0) then
+c         write(6,*) 'Particles?=',n
+c         endif
+c         r_bedo = 103E-3
+c         r_bedi = 40E-3
+c         z_bed  = 7.5E-4
+c         do j=1,n
+c           r_rad = sqrt(rpart(jx,j)**2+rpart(jy,j)**2)
+c           if ((r_rad .gt. r_bedo) .or. (r_rad .lt. r_bedi)) then
+c             ipart(jrc,j) = 2
+c           endif
+c           if ( (rpart(jz,j).gt.z_bed) .or.
+c     >          (rpart(jz,j).lt.-z_bed) ) then
+c             ipart(jrc,j) = 2
+c           endif
+c         enddo
+
+c Initialize 1/4th cylinder
+         piby2 = 2.0*atan(1.0)
+         do j=1,n
+            theta = datan2(rpart(jy,j),rpart(jx,j))
+            if (theta.gt.1.0*piby2 .or. theta.lt.0.0) then
+               ipart(jrc,j) = 2
+            endif
          enddo
 
       elseif (ipart_restartr .lt. 0) then
@@ -6373,6 +6472,84 @@ c
              write(6,*) 'Use different drag model w/o volume frac /0'
              call exitt
          endif
+
+      elseif (abs(part_force(1)).eq.5) then
+         rdum = lpmvol_p*lpmdens_p/lpmtau_p
+
+         lrep = log(lpmre_p)
+         if(lpmre_p .lt. 1E-12) then
+          rcd1 = 1.0
+         else 
+          rmacr= 0.6 ! Critical lpmmach_p no.
+          rcd_mcr = (24.0/lpmre_p)*(1.+0.15*lpmre_p**(0.684)) + 
+     >              0.513/(1.+483./lpmre_p**(0.669))
+c          rcd_mcr = (1.+0.15*lpmre_p**(0.684)) + (lpmre_p/24.0)*
+c     >              0.513/(1.+483./lpmre_p**(0.669))
+
+          if (lpmmach_p .le. 0.6) then
+             rcd_std = (24.0/lpmre_p)*(1.+0.15*lpmre_p**(0.687)) + 
+     >                 0.42/(1.+42500./lpmre_p**(1.16))
+c             rcd_std = (1.+0.15*lpmre_p**(0.687)) + (lpmre_p/24.0)*
+c     >                 0.42/(1.+42500./lpmre_p**(1.16))
+
+             rmach_rat = lpmmach_p/rmacr
+             rmach_rat = min(1.0,rmach_rat)
+             rcd1 = rcd_std + (rcd_mcr - rcd_std)*rmach_rat
+          else if (lpmmach_p .le. 1.0) then
+            rcd_M1  = (24.0/lpmre_p)*(1.0+0.118*lpmre_p**0.813)
+     >                +0.69/(1.0+3550.0/lpmre_p**.793)
+
+            C1 =  6.48
+            C2 =  9.28
+            C3 = 12.21
+
+            f1M = -1.884 + 8.422*lpmmach_p - 13.70*lpmmach_p**2 
+     >            + 8.162*lpmmach_p**3
+            f2M = -2.228 + 10.35*lpmmach_p - 16.96*lpmmach_p**2
+     >            + 9.840*lpmmach_p**3
+            f3M =  4.362 - 16.91*lpmmach_p + 19.84*lpmmach_p**2
+     >            - 6.296*lpmmach_p**3
+
+            factor = f1M*(lrep-C2)*(lrep-C3)/((C1-C2)*(C1-C3))
+     >              +f2M*(lrep-C1)*(lrep-C3)/((C2-C1)*(C2-C3))
+     >              +f3M*(lrep-C1)*(lrep-C2)/((C3-C1)*(C3-C2)) 
+            rcd1 = rcd_mcr + (rcd_M1-rcd_mcr)*factor
+          else if (lpmmach_p .lt. 1.75) then
+            rcd_M1 = (24.0/lpmre_p)*(1.0+0.118*lpmre_p**0.813)
+     >             +0.69/(1.0+3550.0/lpmre_p**.793)
+            rcd_M2 = (24.0/lpmre_p)*(1.0+0.107*lpmre_p**0.867)
+     >             +0.646/(1.0+861.0/lpmre_p**.634)
+
+            C1 =  6.48
+            C2 =  8.93
+            C3 = 12.21
+
+            f1M = -2.963+4.392*lpmmach_p-1.169*lpmmach_p**2
+     >             -0.027*lpmmach_p**3-0.233*exp((1.0-lpmmach_p)/0.011)
+            f2M = -6.617+12.11*lpmmach_p-6.501*lpmmach_p**2
+     >             +1.182*lpmmach_p**3-0.174*exp((1.0-lpmmach_p)/0.010)
+            f3M = -5.866+11.57*lpmmach_p-6.665*lpmmach_p**2
+     >            +1.312*lpmmach_p**3-0.350*exp((1.0-lpmmach_p)/0.012)
+
+            factor = f1M*(lrep-C2)*(lrep-C3)/((C1-C2)*(C1-C3))
+     >              +f2M*(lrep-C1)*(lrep-C3)/((C2-C1)*(C2-C3))
+     >              +f3M*(lrep-C1)*(lrep-C2)/((C3-C1)*(C3-C2)) 
+            rcd1 = rcd_M1 + (rcd_M2-rcd_M1)*factor
+          else
+            rcd1 = (24.0/lpmre_p)*(1.0+0.107*lpmre_p**0.867)
+     >                +0.646/(1.0+861.0/lpmre_p**.634)
+          end if ! lpmmach_p
+            rdum = rdum*lpmre_p/24.0*rcd1
+         end if ! rep
+
+         if (part_force(1) .lt. 0) then
+            rphip = min(0.3,lpmvolfrac_p)
+            rdum  = rdum*(1. + 2.*rphip)/(1. - rphip)**3
+         endif
+
+         lpmforce(1) = rdum*(lpmv_f(1) - lpmv_p(1))
+         lpmforce(2) = rdum*(lpmv_f(2) - lpmv_p(2))
+         lpmforce(3) = rdum*(lpmv_f(3) - lpmv_p(3))
 
       elseif (part_force(1).eq.0) then
          lpmforce(1) = 0.0
